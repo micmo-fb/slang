@@ -79,6 +79,7 @@ void GLSLSourceEmitter::_requireGLSLVersion(int version)
         CASE(430);
         CASE(440);
         CASE(450);
+        CASE(460);
 
 #undef CASE
     }
@@ -91,7 +92,16 @@ void GLSLSourceEmitter::_emitGLSLStructuredBuffer(IRGlobalParam* varDecl, IRHLSL
     // TODO: we should require either the extension or the version...
     _requireGLSLVersion(430);
 
-    m_writer->emit("layout(std430");
+    assert(m_compileRequest->getLinkage()->targets.getCount() == 1);
+    if ((m_compileRequest->getLinkage()->targets[0]->targetFlags & SLANG_TARGET_FLAG_USE_DX_LAYOUT) != 0)
+    {
+        _requireGLSLExtension(UnownedStringSlice::fromLiteral("GL_EXT_scalar_block_layout"));
+        m_writer->emit("layout(scalar");
+    }
+    else
+    {
+        m_writer->emit("layout(std430");
+    }
 
     auto layout = getVarLayout(varDecl);
     if (layout)
@@ -247,9 +257,23 @@ void GLSLSourceEmitter::_emitGLSLParameterGroup(IRGlobalParam* varDecl, IRUnifor
     or IRGLSLShaderStorageBufferType which is read write.
     */
 
-    _emitGLSLLayoutQualifier(LayoutResourceKind::DescriptorTableSlot, &containerChain);
-    _emitGLSLLayoutQualifier(LayoutResourceKind::PushConstantBuffer, &containerChain);
-    bool isShaderRecord = _emitGLSLLayoutQualifier(LayoutResourceKind::ShaderRecord, &containerChain);
+    bool isShaderRecord = false;
+    if (varDecl->findDecorationImpl(kIROp_EntryPointParamDecoration) &&
+        (m_entryPointStage == Stage::AnyHit || m_entryPointStage == Stage::ClosestHit || m_entryPointStage == Stage::Miss))
+    {
+        // Automatically tag uniforms passed to hit and miss shaders as shader records for compatibility with
+        // how D3D12 local root signatures work in HLSL.
+        m_writer->emit("layout(shaderRecordNV)\n");
+        isShaderRecord = true;
+    }
+    else
+    {
+        _emitGLSLLayoutQualifier(LayoutResourceKind::DescriptorTableSlot, &containerChain);
+        _emitGLSLLayoutQualifier(LayoutResourceKind::PushConstantBuffer, &containerChain);
+
+        // Handle manually tagged shader records
+        isShaderRecord = _emitGLSLLayoutQualifier(LayoutResourceKind::ShaderRecord, &containerChain);
+    }
 
     if (isShaderRecord)
     {
@@ -530,11 +554,8 @@ bool GLSLSourceEmitter::_emitGLSLLayoutQualifier(LayoutResourceKind kind, EmitVa
         case LayoutResourceKind::DescriptorTableSlot:
             m_writer->emit("layout(binding = ");
             m_writer->emit(index);
-            if (space)
-            {
-                m_writer->emit(", set = ");
-                m_writer->emit(space);
-            }
+            m_writer->emit(", set = ");
+            m_writer->emit(space);
             m_writer->emit(")\n");
             break;
 

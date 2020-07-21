@@ -584,6 +584,10 @@ extern "C"
            @deprecated This behavior is now enabled unconditionally.
         */
         SLANG_TARGET_FLAG_PARAMETER_BLOCKS_USE_REGISTER_SPACES = 1 << 4,
+
+        // Use DirectX layout for StructuredBuffers when compiling to SPIR-V.
+        // Requires the Vulkan "VK_EXT_scalar_block_layout" extension.
+        SLANG_TARGET_FLAG_USE_DX_LAYOUT = 1 << 5,
     };
 
     /*!

@@ -582,6 +582,10 @@ struct OptionsParser
                 {
                     getCurrentTarget()->targetFlags |= SLANG_TARGET_FLAG_PARAMETER_BLOCKS_USE_REGISTER_SPACES;
                 }
+                else if( argStr == "-fvk_use_dx_layout" )
+                {
+                    getCurrentTarget()->targetFlags |= SLANG_TARGET_FLAG_USE_DX_LAYOUT;
+                }
                 else if (argStr == "-ir-compression")
                 {
                     String name;

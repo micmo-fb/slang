@@ -252,10 +252,10 @@ struct MoveEntryPointUniformParametersToGlobalScope
                     // an instance of `paramStructType`.
                     //
                     globalParam = builder->createGlobalParam(paramStructType);
-
-                    // Mark that this global comes from the entry point
-                    builder->addDecoration(globalParam, kIROp_EntryPointParamDecoration);
                 }
+
+                // Mark that this global comes from the entry point
+                builder->addDecoration(globalParam, kIROp_EntryPointParamDecoration);
 
                 // No matter what, the global shader parameter should have the layout
                 // information from the entry point attached to it, so that the

@@ -3910,10 +3910,10 @@ uint RayFlags();
 
 // 10.4.3 - Primitive/Object Space System Values
 
-__target_intrinsic(glsl, "(gl_InstanceCustomIndexNV)")
+__target_intrinsic(glsl, "(gl_InstanceID)")
 uint InstanceIndex();
 
-__target_intrinsic(glsl, "(gl_InstanceID)")
+__target_intrinsic(glsl, "(gl_InstanceCustomIndexNV)")
 uint InstanceID();
 
 __target_intrinsic(glsl, "(gl_PrimitiveID)")
