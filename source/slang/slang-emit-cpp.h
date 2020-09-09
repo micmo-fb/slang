@@ -37,18 +37,6 @@ public:
         int colCount;
     };
 
-    struct GlobalParamInfo
-    {
-        typedef GlobalParamInfo ThisType;
-        bool operator<(const ThisType& rhs) const { return offset < rhs.offset; }
-        bool operator==(const ThisType& rhs) const { return offset == rhs.offset; }
-        bool operator!=(const ThisType& rhs) const { return !(*this == rhs); }
-
-        IRInst* inst;
-        UInt offset;
-        UInt size;
-    };
-
     virtual void useType(IRType* type);
     virtual void emitCall(const HLSLIntrinsic* specOp, IRInst* inst, const IRUse* operands, int numOperands, const EmitOpInfo& inOuterPrec);
     virtual void emitTypeDefinition(IRType* type);
@@ -79,6 +67,7 @@ protected:
     virtual void emitParamTypeImpl(IRType* type, String const& name) SLANG_OVERRIDE;
     virtual void emitWitnessTable(IRWitnessTable* witnessTable) SLANG_OVERRIDE;
     virtual void emitInterface(IRInterfaceType* interfaceType) SLANG_OVERRIDE;
+    virtual void emitRTTIObject(IRRTTIObject* rttiObject) SLANG_OVERRIDE;
     virtual bool tryEmitGlobalParamImpl(IRGlobalParam* varDecl, IRType* varType) SLANG_OVERRIDE;
     virtual void emitIntrinsicCallExprImpl(IRCall* inst, IRTargetIntrinsicDecoration* targetIntrinsic, EmitOpInfo const& inOuterPrec) SLANG_OVERRIDE;
 
@@ -94,8 +83,6 @@ protected:
     void _maybeEmitSpecializedOperationDefinition(const HLSLIntrinsic* specOp);
 
     void _emitForwardDeclarations(const List<EmitAction>& actions);
-    void _calcGlobalParams(const List<EmitAction>& actions, List<GlobalParamInfo>& outParams, IRGlobalParam** outEntryPointGlobalParams);
-    void _emitUniformStateMembers(const List<EmitAction>& actions, IRGlobalParam** outEntryPointGlobalParams);
 
     void _emitAryDefinition(const HLSLIntrinsic* specOp);
 
@@ -119,15 +106,11 @@ protected:
 
     UnownedStringSlice _getFuncName(const HLSLIntrinsic* specOp);
 
-        // Returns a StringSlice representing the mangled name of a witness table
-        // wrapper function.
-    UnownedStringSlice _getWitnessTableWrapperFuncName(IRFunc* func);
-
     UnownedStringSlice _getTypeName(IRType* type);
     
     SlangResult _calcCPPTextureTypeName(IRTextureTypeBase* texType, StringBuilder& outName);
 
-    void _emitEntryPointDefinitionStart(IRFunc* func, IRGlobalParam* entryPointGlobalParams, const String& funcName, const UnownedStringSlice& varyingTypeName);
+    void _emitEntryPointDefinitionStart(IRFunc* func, const String& funcName, const UnownedStringSlice& varyingTypeName);
     void _emitEntryPointDefinitionEnd(IRFunc* func);
     void _emitEntryPointGroup(const Int sizeAlongAxis[kThreadGroupAxisCount], const String& funcName);
     void _emitEntryPointGroupRange(const Int sizeAlongAxis[kThreadGroupAxisCount], const String& funcName);
@@ -140,19 +123,12 @@ protected:
         // of all the witness table objects in `pendingWitnessTableDefinitions`.
     void _emitWitnessTableDefinitions();
 
-        // Emit wrapper functions that are referenced in witness tables.
-        // Wrapper functions wraps the actual member function, and takes a `void*`
-        // as the `this` parameter instead of the actual object type, so that
-        // their signature is agnostic to the object type.
-    void _emitWitnessTableWrappers();
-
     HLSLIntrinsic* _addIntrinsic(HLSLIntrinsic::Op op, IRType* returnType, IRType*const* argTypes, Index argTypeCount);
 
     static bool _isVariable(IROp op);
 
     Dictionary<IRType*, StringSlicePool::Handle> m_typeNameMap;
     Dictionary<const HLSLIntrinsic*, StringSlicePool::Handle> m_intrinsicNameMap;
-    Dictionary<IRFunc*, StringSlicePool::Handle> m_witnessTableWrapperFuncNameMap;
 
 
     IRTypeSet m_typeSet;

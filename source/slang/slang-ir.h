@@ -822,6 +822,7 @@ struct IRBlock : IRInst
     }
 
     void addParam(IRParam* param);
+    void insertParamAtHead(IRParam* param);
 
     // The "ordinary" instructions come after the parameters
     IRInst* getFirstOrdinaryInst();
@@ -1109,9 +1110,25 @@ SIMPLE_IR_TYPE(OutType, OutTypeBase)
 SIMPLE_IR_TYPE(InOutType, OutTypeBase)
 SIMPLE_IR_TYPE(ExistentialBoxType, PtrTypeBase)
 
-struct IRRawPointerType : IRType
+    /// The base class of RawPointerType and RTTIPointerType.
+struct IRRawPointerTypeBase : IRType
+{
+    IR_PARENT_ISA(RawPointerTypeBase);
+};
+
+    /// Represents a pointer to an object of unknown type.
+struct IRRawPointerType : IRRawPointerTypeBase
 {
     IR_LEAF_ISA(RawPointerType)
+};
+
+    /// Represents a pointer to an object whose type is determined at runtime,
+    /// with type information available through `rttiOperand`.
+    ///
+struct IRRTTIPointerType : IRRawPointerTypeBase
+{
+    IRInst* getRTTIOperand() { return getOperand(0); }
+    IR_LEAF_ISA(RTTIPointerType)
 };
 
 struct IRGlobalHashedStringLiterals : IRInst
@@ -1229,6 +1246,12 @@ struct IRTypeType : IRType
     IR_LEAF_ISA(TypeType);
 };
 
+    /// Represents the IR type for an `IRRTTIObject`.
+struct IRRTTIType : IRType
+{
+    IR_LEAF_ISA(RTTIType);
+};
+
 struct IRWitnessTableType : IRType
 {
     IRInst* getConformanceType()
@@ -1276,6 +1299,7 @@ struct IRGlobalValueWithParams : IRGlobalValueWithCode
     IRParam* getFirstParam();
     IRParam* getLastParam();
     IRInstList<IRParam> getParams();
+    IRInst* getFirstOrdinaryInst();
 
     IR_PARENT_ISA(GlobalValueWithParams)
 };
@@ -1411,6 +1435,12 @@ IRInst* createEmptyInstWithSize(
 
     /// True if the op type can be handled 'nominally' meaning that pointer identity is applicable. 
 bool isNominalOp(IROp op);
+
+    // True if ptrType is a pointer type to elementType
+bool isPointerOfType(IRInst* ptrType, IRInst* elementType);
+
+    // True if ptrType is a pointer type to a type of opCode
+bool isPointerOfType(IRInst* ptrType, IROp opCode);
 
 }
 

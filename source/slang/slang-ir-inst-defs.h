@@ -25,7 +25,12 @@ INST(Nop, nop, 0, 0)
     INST_RANGE(BasicType, VoidType, AfterBaseType)
 
     INST(StringType, String, 0, 0)
+
     INST(RawPointerType, RawPointerType, 0, 0)
+    INST(RTTIPointerType, RTTIPointerType, 1, 0)
+    INST(AfterRawPointerTypeBase, AfterRawPointerTypeBase, 0, 0)
+    INST_RANGE(RawPointerTypeBase, RawPointerType, AfterRawPointerTypeBase)
+
 
     /* ArrayTypeBase */
         INST(ArrayType, Array, 2, 0)
@@ -168,6 +173,7 @@ INST(StructType, struct, 0, PARENT)
 INST(InterfaceType, interface, 0, 0)
 INST(AssociatedType, associated_type, 0, 0)
 INST(ThisType, this_type, 0, 0)
+INST(RTTIType, rtti_type, 0, 0)
 
 // A TypeType-typed IRValue represents a IRType.
 // It is used to represent a type parameter/argument in a generics.
@@ -224,6 +230,8 @@ INST(makeStruct, makeStruct, 0, 0)
 
 INST(Call, call, 1, 0)
 
+INST(RTTIObject, rtti_object, 0, 0)
+INST(Alloca, alloca, 1, 0)
 
 INST(WitnessTableEntry, witness_table_entry, 2, 0)
 INST(InterfaceRequirementEntry, interface_req_entry, 2, 0)
@@ -234,6 +242,7 @@ INST(Var, var, 0, 0)
 
 INST(Load, load, 1, 0)
 INST(Store, store, 2, 0)
+INST(Copy, copy, 3, 0)
 
 INST(FieldExtract, get_field, 2, 0)
 INST(FieldAddress, get_field_addr, 2, 0)
@@ -527,6 +536,10 @@ INST(HighLevelDeclDecoration,               highLevelDecl,          1, 0)
     /* LinkageDecoration */
         INST(ImportDecoration, import, 1, 0)
         INST(ExportDecoration, export, 1, 0)
+
+    /* Decorations for RTTI objects */
+        INST(RTTITypeSizeDecoration, RTTI_typeSize, 1, 0)
+
     INST_RANGE(LinkageDecoration, ImportDecoration, ExportDecoration)
 
     INST(SemanticDecoration, semantic, 2, 0)

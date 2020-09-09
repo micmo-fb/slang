@@ -309,6 +309,14 @@ void CLikeSourceEmitter::emitInterface(IRInterfaceType* interfaceType)
     // This behavior is overloaded by concrete emitters.
 }
 
+void CLikeSourceEmitter::emitRTTIObject(IRRTTIObject* rttiObject)
+{
+    SLANG_UNUSED(rttiObject);
+    // Ignore rtti object by default.
+    // This is only used in targets that support dynamic dispatching.
+}
+
+
 void CLikeSourceEmitter::emitTypeImpl(IRType* type, const StringSliceLoc* nameAndLoc)
 {
     if (nameAndLoc)
@@ -908,6 +916,7 @@ bool CLikeSourceEmitter::shouldFoldInstIntoUseSites(IRInst* inst)
     case kIROp_GlobalParam:
     case kIROp_Param:
     case kIROp_Func:
+    case kIROp_Alloca:
         return false;
 
     // Always fold these in, because they are trivial
@@ -1063,6 +1072,15 @@ bool CLikeSourceEmitter::shouldFoldInstIntoUseSites(IRInst* inst)
     // in ways that require a temporary to be introduced.
     //
     if(inst->findDecoration<IRPreciseDecoration>())
+        return false;
+
+    // In general, undefined value should be emitted as an uninitialized
+    // variable, so we shouldn't fold it.
+    // However, we cannot emit all undefined values a separate variable
+    // definition for certain types on certain targets (e.g. `out TriangleStream<T>`
+    // for GLSL), so we check this only after all those special cases are
+    // considered.
+    if (inst->op == kIROp_undefined)
         return false;
 
     // Okay, at this point we know our instruction must have a single use.
@@ -2010,6 +2028,8 @@ void CLikeSourceEmitter::defaultEmitInstExpr(IRInst* inst, const EmitOpInfo& inO
         /* Don't need to to output anything for this instruction - it's used for reflecting string literals that
         are hashed with 'getStringHash' */
         break;
+    case kIROp_RTTIPointerType:
+        break;
 
     case kIROp_undefined:
         m_writer->emit(getName(inst));
@@ -2330,16 +2350,20 @@ void CLikeSourceEmitter::defaultEmitInstExpr(IRInst* inst, const EmitOpInfo& inO
 
     case kIROp_BitCast:
         {
-            // TODO: we can simplify the logic for arbitrary bitcasts
-            // by always bitcasting the source to a `uint*` type (if it
-            // isn't already) and then bitcasting that to the destination
-            // type (if it isn't already `uint*`.
+            // Note: we are currently emitting casts as plain old
+            // C-style casts, which may not always perform a bitcast.
             //
-            // For now we are assuming the source type is *already*
-            // a `uint*` type of the appropriate size.
-            //
-            //  auto fromType = extractBaseType(inst->getOperand(0)->getDataType());
+            // TODO: This operation should map to an intrinsic to be
+            // provided in a prelude for C/C++, so that the target
+            // can easily emit code for whatever the best possible
+            // bitcast is on the platform.
          
+            auto prec = getInfo(EmitOp::Prefix);
+            needClose = maybeEmitParens(outerPrec, prec);
+
+            m_writer->emit("(");
+            emitType(inst->getDataType());
+            m_writer->emit(")");
             m_writer->emit("(");
             emitOperand(inst->getOperand(0), getInfo(EmitOp::General));
             m_writer->emit(")");
@@ -3672,6 +3696,10 @@ void CLikeSourceEmitter::emitGlobalInst(IRInst* inst)
 
     case kIROp_WitnessTable:
         emitWitnessTable(cast<IRWitnessTable>(inst));
+        break;
+
+    case kIROp_RTTIObject:
+        emitRTTIObject(cast<IRRTTIObject>(inst));
         break;
 
     default:

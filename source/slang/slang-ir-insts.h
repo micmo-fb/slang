@@ -143,6 +143,19 @@ struct IRNameHintDecoration : IRDecoration
     }
 };
 
+/// A decoration on a RTTIObject providing type size information.
+struct IRRTTITypeSizeDecoration : IRDecoration
+{
+    enum { kOp = kIROp_RTTITypeSizeDecoration };
+    IR_LEAF_ISA(RTTITypeSizeDecoration)
+
+    IRIntLit* getTypeSizeOperand() { return cast<IRIntLit>(getOperand(0)); }
+    IRIntegerValue getTypeSize()
+    {
+        return getTypeSizeOperand()->getValue();
+    }
+};
+
 #define IR_SIMPLE_DECORATION(NAME)      \
     struct IR##NAME : IRDecoration      \
     {                                   \
@@ -279,6 +292,8 @@ struct IRNumThreadsDecoration : IRDecoration
     IRIntLit* getX() { return cast<IRIntLit>(getOperand(0)); }
     IRIntLit* getY() { return cast<IRIntLit>(getOperand(1)); }
     IRIntLit* getZ() { return cast<IRIntLit>(getOperand(2)); }
+
+    IRIntLit* getExtentAlongAxis(int axis) { return cast<IRIntLit>(getOperand(axis)); }
 };
 
 struct IREntryPointDecoration : IRDecoration
@@ -418,6 +433,26 @@ struct IRLookupWitnessTable : IRInst
 {
     IRUse sourceType;
     IRUse interfaceType;
+};
+
+/// Allocates space from local stack.
+///
+struct IRAlloca : IRInst
+{
+    IR_LEAF_ISA(Alloca)
+
+    IRInst* getAllocSize() { return getOperand(0); }
+};
+
+/// Copies `size` bytes from `src` to `dst`.
+///
+struct IRCopy : IRInst
+{
+    IR_LEAF_ISA(Copy)
+
+    IRInst* getDst() { return getOperand(0); }
+    IRInst* getSrc() { return getOperand(1); }
+    IRInst* getSize() { return getOperand(2); }
 };
 
 // Layout decorations
@@ -793,9 +828,9 @@ struct IRStructFieldLayoutAttr : IRAttr
 {
     IR_LEAF_ISA(StructFieldLayoutAttr)
 
-    IRStructKey* getFieldKey()
+    IRInst* getFieldKey()
     {
-        return cast<IRStructKey>(getOperand(0));
+        return getOperand(0);
     }
 
     IRVarLayout* getLayout()
@@ -836,7 +871,7 @@ struct IRStructTypeLayout : IRTypeLayout
             : Super::Builder(irBuilder)
         {}
 
-        void addField(IRStructKey* key, IRVarLayout* layout)
+        void addField(IRInst* key, IRVarLayout* layout)
         {
             FieldInfo info;
             info.key = key;
@@ -855,7 +890,7 @@ struct IRStructTypeLayout : IRTypeLayout
 
         struct FieldInfo
         {
-            IRStructKey* key;
+            IRInst* key;
             IRVarLayout* layout;
         };
 
@@ -1089,6 +1124,10 @@ struct IRVarLayout : IRLayout
     };
 };
 
+bool isVaryingResourceKind(LayoutResourceKind kind);
+bool isVaryingParameter(IRTypeLayout* typeLayout);
+bool isVaryingParameter(IRVarLayout* varLayout);
+
     /// Associate layout information with an instruction.
     ///
     /// This decoration is used in three main ways:
@@ -1122,12 +1161,14 @@ struct IRCall : IRInst
 struct IRLoad : IRInst
 {
     IRUse ptr;
+    IR_LEAF_ISA(Load)
 };
 
 struct IRStore : IRInst
 {
     IRUse ptr;
     IRUse val;
+    IR_LEAF_ISA(Store)
 };
 
 struct IRFieldExtract : IRInst
@@ -1137,6 +1178,8 @@ struct IRFieldExtract : IRInst
 
     IRInst* getBase() { return base.get(); }
     IRInst* getField() { return field.get(); }
+    IR_LEAF_ISA(FieldExtract)
+
 };
 
 struct IRFieldAddress : IRInst
@@ -1146,6 +1189,8 @@ struct IRFieldAddress : IRInst
 
     IRInst* getBase() { return base.get(); }
     IRInst* getField() { return field.get(); }
+    IR_LEAF_ISA(FieldAddress)
+
 };
 
 struct IRGetAddress : IRInst
@@ -1361,6 +1406,8 @@ struct IRVar : IRInst
 /// blocks nested inside this value.
 struct IRGlobalVar : IRGlobalValueWithCode
 {
+    IR_LEAF_ISA(GlobalVar)
+
     IRPtrType* getDataType()
     {
         return cast<IRPtrType>(IRInst::getDataType());
@@ -1436,7 +1483,22 @@ struct IRWitnessTable : IRInst
         return getOperand(0);
     }
 
+    void setConformanceType(IRInst* type)
+    {
+        setOperand(0, type);
+    }
+
     IR_LEAF_ISA(WitnessTable)
+};
+
+/// Represents an RTTI object.
+/// An IRRTTIObject has 1 operand, specifying the type
+/// this RTTI object provides info for.
+/// All type info are encapsualted as `IRRTTI*Decoration`s attached
+/// to the object.
+struct IRRTTIObject : IRInst
+{
+    IR_LEAF_ISA(RTTIObject)
 };
 
 // An instruction that yields an undefined value.
@@ -1508,6 +1570,19 @@ struct IRConstantKey
 
 struct SharedIRBuilder
 {
+    SharedIRBuilder()
+    {}
+
+    SharedIRBuilder(Session* session, IRModule* module)
+        : session(session)
+        , module(module)
+    {}
+
+    explicit SharedIRBuilder(IRModule* module)
+        : session(module->getSession())
+        , module(module)
+    {}
+
     // The parent compilation session
     Session* session;
     Session* getSession()
@@ -1528,8 +1603,15 @@ struct IRBuilderSourceLocRAII;
 
 struct IRBuilder
 {
+    IRBuilder()
+    {}
+
+    IRBuilder(SharedIRBuilder* sharedBuilder)
+        : sharedBuilder(sharedBuilder)
+    {}
+
     // Shared state for all IR builders working on the same module
-    SharedIRBuilder*    sharedBuilder;
+    SharedIRBuilder*    sharedBuilder = nullptr;
 
     Session* getSession()
     {
@@ -1574,6 +1656,8 @@ struct IRBuilder
     IRAssociatedType* getAssociatedType();
     IRThisType* getThisType();
     IRRawPointerType* getRawPointerType();
+    IRRTTIPointerType* getRTTIPointerType(IRInst* rttiPtr);
+    IRRTTIType* getRTTIType();
 
 
     IRBasicBlockType*   getBasicBlockType();
@@ -1681,6 +1765,10 @@ struct IRBuilder
         IRInst* witnessTableVal,
         IRInst* interfaceMethodVal);
 
+    IRInst* emitAlloca(IRInst* type, IRInst* rttiObjPtr);
+
+    IRInst* emitCopy(IRInst* dst, IRInst* src, IRInst* rttiObjPtr);
+
     IRInst* emitCallInst(
         IRType*         type,
         IRInst*         func,
@@ -1711,6 +1799,9 @@ struct IRBuilder
         IRType*         type,
         UInt            argCount,
         IRInst* const* args);
+
+    // Creates an RTTI object. Result is of `IRRTTIType`.
+    IRInst* emitMakeRTTIObject(IRInst* typeInst);
 
     IRInst* emitMakeVector(
         IRType*         type,
@@ -1875,6 +1966,8 @@ struct IRBuilder
     IRParam* createParam(
         IRType* type);
     IRParam* emitParam(
+        IRType* type);
+    IRParam* emitParamAtHead(
         IRType* type);
 
     IRVar* emitVar(
@@ -2054,6 +2147,9 @@ struct IRBuilder
     IRInst* emitBitAnd(IRType* type, IRInst* left, IRInst* right);
     IRInst* emitBitNot(IRType* type, IRInst* value);
 
+    IRInst* emitAdd(IRType* type, IRInst* left, IRInst* right);
+    IRInst* emitMul(IRType* type, IRInst* left, IRInst* right);
+
     //
     // Decorations
     //
@@ -2099,7 +2195,7 @@ struct IRBuilder
     IRPendingLayoutAttr* getPendingLayoutAttr(
         IRLayout* pendingLayout);
     IRStructFieldLayoutAttr* getFieldLayoutAttr(
-        IRStructKey*    key,
+        IRInst*         key,
         IRVarLayout*    layout);
     IRCaseTypeLayoutAttr* getCaseTypeLayoutAttr(
         IRTypeLayout*   layout);
@@ -2242,6 +2338,11 @@ struct IRBuilder
     void addFormatDecoration(IRInst* inst, IRInst* format)
     {
         addDecoration(inst, kIROp_FormatDecoration, format);
+    }
+
+    void addRTTITypeSizeDecoration(IRInst* inst, IRIntegerValue value)
+    {
+        addDecoration(inst, kIROp_RTTITypeSizeDecoration, getIntValue(getIntType(), value));
     }
 };
 

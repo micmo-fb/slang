@@ -108,6 +108,7 @@ DIAGNOSTIC(    62, Error, failedToFindFunctionForCompiler, "failed to find funct
 DIAGNOSTIC(    70, Error, cannotMatchOutputFileToEntryPoint, "the output path '$0' is not associated with any entry point; a '-o' option for a compiled kernel must follow the '-entry' option for its corresponding entry point")
 
 DIAGNOSTIC(    80, Error, duplicateOutputPathsForEntryPointAndTarget, "multiple output paths have been specified entry point '$0' on target '$1'")
+DIAGNOSTIC(    81, Error, duplicateOutputPathsForTarget, "multiple output paths have been specified for target '$0'")
 
 DIAGNOSTIC(    82, Error, unableToWriteReproFile, "unable to write repro file '%0'")
 DIAGNOSTIC(    83, Error, unableToWriteModuleContainer, "unable to write module container '%0'")
@@ -453,7 +454,7 @@ DIAGNOSTIC(39015, Error, wholeSpaceParameterRequiresZeroBinding, "shader paramet
 DIAGNOSTIC(39013, Error, dontExpectOutParametersForStage, "the '$0' stage does not support `out` or `inout` entry point parameters")
 DIAGNOSTIC(39014, Error, dontExpectInParametersForStage, "the '$0' stage does not support `in` entry point parameters")
 
-DIAGNOSTIC(39016, Error, globalUniformsNotSupported, "'$0' is implicitly a global uniform shader parameter, which is currently unsupported by Slang. If a uniform parameter is intended, use a constant buffer or parameter block. If a global is intended, use the 'static' modifier.")
+DIAGNOSTIC(39016, Warning, globalUniformNotExpected, "'$0' is implicitly a global shader parameter, not a global variable. If a global variable is intended, add the 'static' modifier. If a uniform shader parameter is intended, add the 'uniform' modifier to silence this warning.")
 
 DIAGNOSTIC(39017, Error, tooManyShaderRecordConstantBuffers, "can have at most one 'shader record' attributed constant buffer; found $0.")
 

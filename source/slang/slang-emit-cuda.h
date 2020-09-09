@@ -55,9 +55,8 @@ protected:
     virtual void emitVectorTypeNameImpl(IRType* elementType, IRIntegerValue elementCount) SLANG_OVERRIDE;
     virtual void emitVarDecorationsImpl(IRInst* varDecl) SLANG_OVERRIDE;
     virtual void emitMatrixLayoutModifiersImpl(IRVarLayout* layout) SLANG_OVERRIDE;
-    virtual void emitOperandImpl(IRInst* inst, EmitOpInfo const&  outerPrec) SLANG_OVERRIDE;
     virtual void emitCall(const HLSLIntrinsic* specOp, IRInst* inst, const IRUse* operands, int numOperands, const EmitOpInfo& inOuterPrec) SLANG_OVERRIDE;
-    virtual void emitFunctionPreambleImpl(IRInst* inst) SLANG_OVERRIDE { SLANG_UNUSED(inst); m_writer->emit("__device__ "); }
+    virtual void emitFunctionPreambleImpl(IRInst* inst) SLANG_OVERRIDE;
 
     virtual void emitLoopControlDecorationImpl(IRLoopControlDecoration* decl) SLANG_OVERRIDE;
 

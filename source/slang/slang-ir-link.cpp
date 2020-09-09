@@ -1346,7 +1346,6 @@ struct IRSpecializationState
     }
 };
 
-// TODO(DG): Generalize to multiple entry points
 LinkedIR linkIR(
     BackEndCompileRequest*  compileRequest,
     const List<Int>&        entryPointIndices,
@@ -1403,7 +1402,8 @@ LinkedIR linkIR(
     // responsible for associating layout information to those
     // global symbols via decorations.
     //
-    insertGlobalValueSymbols(sharedContext, targetProgram->getExistingIRModuleForLayout());
+    auto irModuleForLayout = targetProgram->getExistingIRModuleForLayout();
+    insertGlobalValueSymbols(sharedContext, irModuleForLayout);
 
     auto context = state->getContext();
 
@@ -1447,12 +1447,25 @@ LinkedIR linkIR(
     // arguments which might end up affecting the mangled
     // entry point name.
     //
-    // TODO(DG): spot to generalize to multiple entry points
-    // Note that only stuff referenced by an entry point gets linked here
-    // Temporary assertion for checkpoint
-    SLANG_ASSERT(entryPointIndices.getCount() == 1);
-    auto entryPointMangledName = program->getEntryPointMangledName(entryPointIndices[0]);
-    auto irEntryPoint = specializeIRForEntryPoint(context, entryPointMangledName);
+
+    List<IRFunc*> irEntryPoints;
+    for (auto entryPointIndex : entryPointIndices)
+    {
+        auto entryPointMangledName = program->getEntryPointMangledName(entryPointIndex);
+        irEntryPoints.add(specializeIRForEntryPoint(context, entryPointMangledName));
+    }
+
+    // Layout information for global shader parameters is also required,
+    // and in particular every global parameter that is part of the layout
+    // should be present in the initial IR module so that steps that
+    // need to operate on all the global parameters can do so.
+    //
+    IRVarLayout* irGlobalScopeVarLayout = nullptr;
+    if( auto irGlobalScopeLayoutDecoration = irModuleForLayout->getModuleInst()->findDecoration<IRLayoutDecoration>() )
+    {
+        auto irOriginalGlobalScopeVarLayout = irGlobalScopeLayoutDecoration->getLayout();
+        irGlobalScopeVarLayout = cast<IRVarLayout>(cloneValue(context, irOriginalGlobalScopeVarLayout));
+    }
 
     // Bindings for global generic parameters are currently represented
     // as stand-alone global-scope instructions in the IR module for
@@ -1515,7 +1528,8 @@ LinkedIR linkIR(
     //
     LinkedIR linkedIR;
     linkedIR.module = state->irModule;
-    linkedIR.entryPoint = irEntryPoint;
+    linkedIR.globalScopeVarLayout = irGlobalScopeVarLayout;
+    linkedIR.entryPoints = irEntryPoints;
     return linkedIR;
 }
 
